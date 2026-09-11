@@ -1,132 +1,93 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, useMemo, useRef, useState } from 'react';
+import { AppHeader } from './components/AppHeader';
 import { BottomTabBar } from './components/BottomTabBar';
-import { HomeScreen } from './screens/HomeScreen';
+import { Icon } from './components/Icon';
+import { useProgress } from './context/ProgressContext';
 import { HistoryScreen } from './screens/HistoryScreen';
-import { NewEntryScreen } from './screens/NewEntryScreen';
+import { HomeScreen } from './screens/HomeScreen';
 import { InsightsScreen } from './screens/InsightsScreen';
 import { MonthDetailScreen } from './screens/MonthDetailScreen';
-import { useProgress } from './context/ProgressContext';
+import { NewEntryScreen } from './screens/NewEntryScreen';
 import { monthLong } from './utils/format';
 import type { MonthlyEntry } from './types';
 
 type Tab = 'home' | 'new' | 'history' | 'insights';
 type ImportMode = 'replace' | 'merge';
 
-function canShareFiles() {
-  return Boolean(navigator.share) && Boolean(navigator.canShare);
-}
-
-function downloadText(content: string, filename: string, type: string) {
+function shareOrDownload(content: string, filename: string, type: string) {
   const blob = new Blob([content], { type });
   const file = new File([blob], filename, { type });
-
-  if (canShareFiles() && navigator.canShare?.({ files: [file] })) {
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
     void navigator.share({ files: [file], title: filename });
-  } else {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    return;
   }
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export function ProgressPulseApp() {
   const {
-    entries,
-    ready,
-    seeded,
-    currentMonthEntry,
-    importBackup,
-    validateBackup,
-    exportJSON,
-    exportCSV,
-    clearAll,
-    deleteById,
-    entryForMonth,
-    seedFromHistoryText,
-    startFresh
+    entries, ready, seeded, currentMonthEntry, importBackup, validateBackup, exportJSON, exportCSV,
+    clearAll, deleteById, entryForMonth, seedFromHistoryText, startFresh
   } = useProgress();
-
   const [tab, setTab] = useState<Tab>('home');
   const [selectedEntry, setSelectedEntry] = useState<MonthlyEntry | null>(null);
-  const [editingEntry, setEditingEntry] = useState<MonthlyEntry | undefined>(undefined);
+  const [editingEntry, setEditingEntry] = useState<MonthlyEntry>();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [importPayload, setImportPayload] = useState<string | null>(null);
-  const [importError, setImportError] = useState('');
-  const [showInstallHint, setShowInstallHint] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [feedback, setFeedback] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const backupInputRef = useRef<HTMLInputElement>(null);
   const historyInputRef = useRef<HTMLInputElement>(null);
-
   const now = useMemo(() => new Date(), []);
-  const nowLabel = monthLong(now.getFullYear(), now.getMonth() + 1);
 
-  const hasData = entries.length > 0;
-
-  const historyDetailPrevious = useMemo(() => {
+  const previousForDetail = useMemo(() => {
     if (!selectedEntry) return undefined;
-    const previousMonth = selectedEntry.month === 1 ? 12 : selectedEntry.month - 1;
-    const previousYear = selectedEntry.month === 1 ? selectedEntry.year - 1 : selectedEntry.year;
-    return entryForMonth(previousYear, previousMonth);
+    const month = selectedEntry.month === 1 ? 12 : selectedEntry.month - 1;
+    const year = selectedEntry.month === 1 ? selectedEntry.year - 1 : selectedEntry.year;
+    return entryForMonth(year, month);
   }, [entryForMonth, selectedEntry]);
 
-  useEffect(() => {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || Boolean((window.navigator as any).standalone);
-    const dismissed = localStorage.getItem('progresspulse_install_prompt_dismissed');
-    const isIPhone = /iphone|ipod|ipad/.test(navigator.userAgent.toLowerCase());
-    if (!standalone && isIPhone && !dismissed) {
-      setShowInstallHint(true);
-    }
-  }, []);
-
-  const onNavigate = (next: Tab) => {
+  const navigate = (next: Tab) => {
     setTab(next);
-    setSelectedEntry((current) => (next !== 'history' ? null : current));
+    if (next !== 'history') setSelectedEntry(null);
     setEditingEntry(undefined);
   };
 
-  const onHistorySelect = (entry: MonthlyEntry) => {
-    setSelectedEntry(entry);
-    setTab('history');
-  };
-
-  const onCloseImport = () => {
-    setImportPayload(null);
-    setImportError('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const onRequestImport = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      const payload = await file.text();
-      validateBackup(payload);
-      setImportPayload(payload);
-      setImportError('');
-    } catch (error) {
-      setImportError((error as Error).message || 'Could not parse backup file.');
-    }
-  };
-
-  const onRequestHistory = async (event: ChangeEvent<HTMLInputElement>) => {
+  const chooseBackup = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
       const text = await file.text();
-      if (text.trim().startsWith('{')) {
-        await importBackup(text, 'replace');
-        setFeedback('Private history imported.');
-      } else {
-        const count = await seedFromHistoryText(text);
-        if (!count) throw new Error('No valid monthly entries found in that history file.');
-        setFeedback(`Private history imported: ${count} months.`);
-      }
+      validateBackup(text);
+      setImportPayload(text);
+      setSettingsOpen(false);
+      setError('');
+    } catch (caught) {
+      setError((caught as Error).message || 'That backup could not be read.');
+    }
+  };
+
+  const chooseHistory = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const count = text.trim().startsWith('{')
+        ? (await importBackup(text, 'replace'), validateBackup(text).entries.length)
+        : await seedFromHistoryText(text);
+      if (!count) throw new Error('No monthly reviews were found in that file.');
+      setMessage(`${count} monthly reviews imported.`);
+      setError('');
+    } catch (caught) {
+      setError((caught as Error).message || 'That history could not be imported.');
+    } finally {
       if (historyInputRef.current) historyInputRef.current.value = '';
-    } catch (error) {
-      setImportError((error as Error).message || 'Could not import history.');
     }
   };
 
@@ -134,226 +95,82 @@ export function ProgressPulseApp() {
     if (!importPayload) return;
     try {
       await importBackup(importPayload, mode);
-      onCloseImport();
+      setImportPayload(null);
+      setMessage('Backup restored.');
       setTab('home');
-      setFeedback('Backup imported.');
-    } catch (error) {
-      setImportError((error as Error).message || 'Import failed.');
+    } catch (caught) {
+      setError((caught as Error).message || 'The backup could not be restored.');
     }
   };
 
-  const safeDeleteAll = async () => {
+  const clearData = async () => {
     await clearAll();
-    setFeedback('All local data cleared.');
-    setSelectedEntry(null);
-    setShowDeleteConfirm(false);
+    setClearConfirm(false);
+    setSettingsOpen(false);
+    setMessage('All reviews were removed from this device.');
   };
-
-  const pendingCount = useMemo(() => {
-    if (!importPayload) return 0;
-    try {
-      return validateBackup(importPayload).entries.length;
-    } catch {
-      return 0;
-    }
-  }, [importPayload, validateBackup]);
 
   if (!ready) {
-    return (
-      <div className="app-shell">
-        <div className="card">
-          <p className="notice">Loading local history...</p>
-        </div>
-      </div>
-    );
+    return <main className="app-shell"><div className="loading-mark">Loading your progress</div></main>;
   }
 
+  const filenameDate = new Date().toISOString().slice(0, 10);
+  const importCount = importPayload ? validateBackup(importPayload).entries.length : 0;
+
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <h1>ProgressPulse</h1>
-          <div className="notice">{nowLabel}</div>
-        </div>
-        <div className="row" style={{ gap: 6 }}>
-          <button
-            onClick={() => {
-              downloadText(exportJSON(), `progresspulse-backup-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
-            }}
-            type="button"
-          >
-            Export JSON
-          </button>
-          <button
-            onClick={() => {
-              downloadText(exportCSV(), `progresspulse-backup-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
-            }}
-            type="button"
-          >
-            Export CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Import JSON
-          </button>
-        </div>
-      </header>
+    <main className="app-shell">
+      <AppHeader onOpenSettings={() => setSettingsOpen(true)} />
+      <input ref={backupInputRef} type="file" accept="application/json,.json" onChange={chooseBackup} hidden />
+      <input ref={historyInputRef} type="file" accept="application/json,text/plain,.json,.txt" onChange={chooseHistory} hidden />
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept="application/json"
-        onChange={onRequestImport}
-        style={{ display: 'none' }}
-      />
-      <input
-        type="file"
-        ref={historyInputRef}
-        accept="application/json,text/plain,.json,.txt"
-        onChange={onRequestHistory}
-        style={{ display: 'none' }}
-      />
+      {!seeded && entries.length === 0 ? (
+        <section className="onboarding" aria-labelledby="onboarding-title">
+          <span className="eyebrow">Progress Tracker</span>
+          <h2 id="onboarding-title">Your progress, month by month.</h2>
+          <p>Your data stays on this device.</p>
+          <button className="primary-button" type="button" onClick={() => historyInputRef.current?.click()}>Import Existing History</button>
+          <button className="text-button" type="button" onClick={startFresh}>Start Fresh</button>
+        </section>
+      ) : (
+        <section className="app-main">
+          {tab === 'home' ? <HomeScreen onCompleteReview={() => navigate('new')} onEditCurrent={() => { setEditingEntry(currentMonthEntry); setTab('new'); }} /> : null}
+          {tab === 'new' ? <NewEntryScreen initial={editingEntry} onCancel={() => navigate('home')} onSaved={() => { setMessage('Review saved.'); navigate('home'); }} /> : null}
+          {tab === 'history' && !selectedEntry ? <HistoryScreen onSelect={(entry) => setSelectedEntry(entry)} /> : null}
+          {tab === 'history' && selectedEntry ? <MonthDetailScreen entry={selectedEntry} previous={previousForDetail} onBack={() => setSelectedEntry(null)} onEdit={() => { setEditingEntry(selectedEntry); setSelectedEntry(null); setTab('new'); }} onDelete={async () => { await deleteById(selectedEntry.id); setSelectedEntry(null); setMessage('Review deleted.'); }} /> : null}
+          {tab === 'insights' ? <InsightsScreen /> : null}
+        </section>
+      )}
 
-      <p className="notice" style={{ marginTop: 0 }}>
-        {entries.length > 0
-          ? `Latest: ${monthLong(entries.at(-1)!.year, entries.at(-1)!.month)}`
-          : 'No local months yet'}
-      </p>
-
-      {showInstallHint ? (
-        <div className="card" style={{ marginBottom: 10 }}>
-          <strong>Add to Home Screen</strong>
-          <div className="notice">From Safari tap Share → Add to Home Screen for full offline app mode.</div>
-          <div className="row" style={{ marginTop: 6, gap: 8 }}>
-            <button
-              onClick={() => {
-                localStorage.setItem('progresspulse_install_prompt_dismissed', '1');
-                setShowInstallHint(false);
-              }}
-              type="button"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {!seeded && !hasData ? (
-        <div className="card" style={{ marginBottom: 10 }}>
-          <strong>Start your private history</strong>
-          <div className="notice">Import your generated private JSON backup or your original past.txt. Nothing is uploaded.</div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <button type="button" onClick={() => historyInputRef.current?.click()}>Import My History</button>
-            <button type="button" onClick={startFresh}>Start Fresh</button>
-          </div>
-        </div>
-      ) : null}
-
-      {feedback ? <div className="notice">{feedback}</div> : null}
-      {importError ? <div className="notice">{importError}</div> : null}
-
-      <section style={{ marginTop: 10 }}>
-        {tab === 'home' && (
-          <HomeScreen
-            onCompleteReview={() => {
-              setEditingEntry(undefined);
-              setTab('new');
-            }}
-            onEditCurrent={
-              currentMonthEntry
-                ? () => {
-                    setEditingEntry(currentMonthEntry);
-                    setTab('new');
-                  }
-                : undefined
-            }
-          />
-        )}
-
-        {tab === 'new' && (
-          <NewEntryScreen
-            initial={editingEntry}
-            onCancel={() => {
-              setEditingEntry(undefined);
-              setTab('home');
-            }}
-            onSaved={() => {
-              setEditingEntry(undefined);
-              setFeedback('Entry saved.');
-              setTab('home');
-            }}
-          />
-        )}
-
-        {tab === 'history' && selectedEntry ? (
-          <MonthDetailScreen
-            entry={selectedEntry}
-            previous={historyDetailPrevious}
-            onBack={() => setSelectedEntry(null)}
-            onEdit={() => {
-              setEditingEntry(selectedEntry);
-              setSelectedEntry(null);
-              setTab('new');
-            }}
-            onDelete={async () => {
-              await deleteById(selectedEntry.id);
-              setSelectedEntry(null);
-              setFeedback('Month deleted.');
-            }}
-          />
-        ) : null}
-
-        {tab === 'history' && !selectedEntry ? <HistoryScreen onSelect={onHistorySelect} /> : null}
-
-        {tab === 'insights' ? <InsightsScreen /> : null}
-      </section>
+      {message ? <div className="toast" role="status"><Icon name="check" />{message}<button className="toast-close" type="button" onClick={() => setMessage('')} aria-label="Dismiss message">x</button></div> : null}
+      {error ? <div className="toast error" role="alert">{error}<button className="toast-close" type="button" onClick={() => setError('')} aria-label="Dismiss error">x</button></div> : null}
 
       {importPayload ? (
-        <section className="card" style={{ marginTop: 10 }}>
-          <h2 className="section-title">Import backup</h2>
-          <div className="notice">Detected {pendingCount} entries in selected file.</div>
-          <div className="row" style={{ marginTop: 8 }}>
-            <button onClick={() => applyImport('merge')} type="button">
-              Merge
-            </button>
-            <button onClick={() => applyImport('replace')} type="button">
-              Replace Existing
-            </button>
-            <button
-              onClick={onCloseImport}
-              type="button"
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
+        <div className="sheet-backdrop" role="presentation">
+          <section className="sheet" role="dialog" aria-modal="true" aria-labelledby="restore-title">
+            <span className="eyebrow">Backup</span>
+            <h2 id="restore-title">Restore {importCount} reviews?</h2>
+            <p>Merge updates matching months and keeps everything else. Replace removes current reviews first.</p>
+            <button className="primary-button" type="button" onClick={() => applyImport('merge')}>Merge Backup</button>
+            <button className="secondary-button" type="button" onClick={() => applyImport('replace')}>Replace Existing Reviews</button>
+            <button className="text-button" type="button" onClick={() => setImportPayload(null)}>Cancel</button>
+          </section>
+        </div>
       ) : null}
 
-      <section className="card" style={{ marginTop: 10 }}>
-        <h2 className="section-title">Data</h2>
-        <p className="notice">{entries.length} month{entries.length === 1 ? '' : 's'} stored locally in this browser's IndexedDB.</p>
-        {showDeleteConfirm ? (
-          <>
-            <p className="notice">This permanently deletes local entries. This action cannot be undone.</p>
-            <div className="row" style={{ marginTop: 8 }}>
-              <button type="button" onClick={safeDeleteAll}>
-                Confirm clear all
-              </button>
-              <button type="button" onClick={() => setShowDeleteConfirm(false)}>
-                Cancel
-              </button>
-            </div>
-          </>
-        ) : (
-          <button type="button" onClick={() => setShowDeleteConfirm(true)}>
-            Clear local data
-          </button>
-        )}
-      </section>
+      {settingsOpen ? (
+        <div className="sheet-backdrop" role="presentation">
+          <section className="sheet settings-sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+            <div className="sheet-heading"><h2 id="settings-title">Settings</h2><button className="icon-button" type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings">x</button></div>
+            <section className="settings-group"><span className="eyebrow">Data</span><p><strong>{entries.length} monthly reviews</strong><br />Stored privately on this device.</p></section>
+            <section className="settings-group"><span className="eyebrow">Backup</span><button className="settings-action" type="button" onClick={() => shareOrDownload(exportJSON(), `progress-tracker-backup-${filenameDate}.json`, 'application/json')}><Icon name="download" />Export Backup</button><button className="settings-action" type="button" onClick={() => backupInputRef.current?.click()}><Icon name="upload" />Import Backup</button><button className="settings-action" type="button" onClick={() => shareOrDownload(exportCSV(), `progress-tracker-${filenameDate}.csv`, 'text/csv')}><Icon name="download" />Export CSV</button></section>
+            <section className="settings-group"><span className="eyebrow">App</span><p>Offline ready</p></section>
+            <section className="settings-group danger-zone"><span className="eyebrow">Danger zone</span>{clearConfirm ? <><p>Remove every review from this device? This cannot be undone.</p><button className="danger-button" type="button" onClick={clearData}>Remove All Reviews</button><button className="text-button" type="button" onClick={() => setClearConfirm(false)}>Cancel</button></> : <button className="settings-action danger-action" type="button" onClick={() => setClearConfirm(true)}>Clear All Data</button>}</section>
+          </section>
+        </div>
+      ) : null}
 
-      <BottomTabBar active={tab} onNavigate={onNavigate} />
-    </div>
+      {seeded || entries.length > 0 ? <BottomTabBar active={tab} onNavigate={navigate} /> : null}
+      <span className="sr-only">{monthLong(now.getFullYear(), now.getMonth() + 1)}</span>
+    </main>
   );
 }

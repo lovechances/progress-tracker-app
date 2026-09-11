@@ -214,7 +214,7 @@ export function createBackup(entries: MonthlyEntry[]) {
 }
 
 export function backupFilename(d: Date) {
-  return `progresspulse-backup-${d.toISOString().slice(0, 10)}.json`;
+  return `progress-tracker-backup-${d.toISOString().slice(0, 10)}.json`;
 }
 
 export function downloadAsFile(content: string, filename: string, type: string) {

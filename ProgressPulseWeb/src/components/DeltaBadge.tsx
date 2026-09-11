@@ -4,7 +4,7 @@ export function DeltaBadge({ value, asMoney = false }: { value?: number; asMoney
   if (value === undefined) return <span className="notice">—</span>;
   const text = formatDelta(value, asMoney);
   return (
-    <span className={`pill ${value >= 0 ? 'good' : 'bad'}`}>
+    <span className={`delta ${value > 0 ? 'positive' : value < 0 ? 'negative' : 'neutral'}`}>
       {text}
     </span>
   );

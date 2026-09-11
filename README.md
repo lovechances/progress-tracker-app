@@ -1,6 +1,6 @@
-# ProgressPulse PWA
+# Progress Tracker PWA
 
-ProgressPulse is a private, offline-first monthly progress tracker. The existing Swift/iOS source is preserved; `ProgressPulseWeb` is the installable web app used for the $0 iPhone route.
+Progress Tracker is a private, offline-first monthly progress tracker. The existing Swift/iOS source is preserved; `ProgressPulseWeb` is the installable web app used for the $0 iPhone route.
 
 ## Architecture and privacy
 
@@ -9,7 +9,7 @@ ProgressPulse is a private, offline-first monthly progress tracker. The existing
 - The public app bundle contains no personal history. Your `past.txt` stays outside `ProgressPulseWeb/public`, and `private/history-import.json` is ignored by Git.
 - The app works offline after its first Safari visit and installation. Export a JSON backup regularly: clearing Safari website data, deleting the Home Screen app, or changing the deployment domain can erase the browser's local data.
 
-## Get ProgressPulse on my iPhone for $0
+## Get Progress Tracker on my iPhone for $0
 
 1. In Terminal, run `cd /Users/chance/Desktop/python/progress/ProgressPulseWeb && npm install`.
 2. Generate your private one-file history import with `npm run generate:private-import -- ../past.txt private/history-import.json`. This creates 32 private months from January 2024 through August 2026 and never places them in `public` or `dist`.
@@ -22,7 +22,7 @@ No Apple Developer membership or Apple signing is needed for this PWA route. The
 
 ## Updating safely
 
-Deploying a new build to the same HTTPS domain preserves IndexedDB entries. The PWA service worker updates its app shell automatically. Before changing domains, clearing browser data, deleting the app, or making a major update, export JSON. Restore through `Import JSON`: `Merge` updates matching months while keeping local extras; `Replace Existing` replaces the local history after validation.
+Deploying a new build to the same HTTPS domain preserves IndexedDB entries. The PWA service worker updates its app shell automatically. Before changing domains, clearing browser data, deleting the app, or making a major update, export a backup. Restore through `Import Backup`: `Merge` updates matching months while keeping local extras; `Replace Existing` replaces the local history after validation.
 
 ## Checks
 

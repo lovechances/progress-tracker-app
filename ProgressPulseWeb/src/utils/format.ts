@@ -39,6 +39,7 @@ export function monthShort(year: number, month: number): string {
 
 export function formatDelta(value: number | undefined, asMoney = false): string {
   if (value === undefined) return '—';
+  if (value === 0) return asMoney ? '— $0' : '— 0.0';
   if (asMoney) {
     return `${value >= 0 ? '↑ +' : '↓ -'}${moneyText(Math.abs(value))}`;
   }

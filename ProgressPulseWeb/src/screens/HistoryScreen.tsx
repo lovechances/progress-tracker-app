@@ -1,77 +1,30 @@
 import { useMemo, useState } from 'react';
+import { Icon } from '../components/Icon';
 import { useProgress } from '../context/ProgressContext';
-import { monthLong, ratingText, moneyText } from '../utils/format';
-import { lifeScore } from '../lib/analytics';
-import { ratingCategoryList, ratingDisplayName, type MonthlyEntry } from '../types';
+import { lifeScore, ratingChange } from '../lib/analytics';
+import { ratingCategoryList, ratingDisplayName, type MonthlyEntry, type RatingCategory } from '../types';
+import { formatDelta, moneyText, monthLong, ratingText } from '../utils/format';
 
-export function HistoryScreen({
-  onSelect
-}: {
-  onSelect: (entry: MonthlyEntry) => void;
-}) {
-  const { entries, years } = useProgress();
-  const [filterYear, setFilterYear] = useState<number | 'all'>('all');
+function changeSummary(entry: MonthlyEntry, previous?: MonthlyEntry) {
+  if (!previous) return { best: null, worst: null };
+  const changes = ratingCategoryList.map((category) => ({ category, delta: ratingChange(entry[category], previous[category]) })).filter((item): item is { category: RatingCategory; delta: number } => item.delta !== null);
+  const sorted = [...changes].sort((a, b) => b.delta - a.delta);
+  return { best: sorted[0]?.delta && sorted[0].delta > 0 ? sorted[0] : null, worst: sorted.at(-1)?.delta && sorted.at(-1)!.delta < 0 ? sorted.at(-1)! : null };
+}
 
-  const filtered = useMemo(() => {
-    if (filterYear === 'all') return [...entries].reverse();
-    return [...entries].filter((entry) => entry.year === filterYear).reverse();
-  }, [entries, filterYear]);
+export function HistoryScreen({ onSelect }: { onSelect: (entry: MonthlyEntry) => void }) {
+  const { entries, years, entryForMonth } = useProgress();
+  const [year, setYear] = useState<number | 'all'>('all');
+  const filtered = useMemo(() => (year === 'all' ? [...entries] : entries.filter((entry) => entry.year === year)).reverse(), [entries, year]);
 
-  return (
-    <div className="stack">
-      <div className="card">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 className="section-title">History</h2>
-          <select
-            value={filterYear}
-            onChange={(event) => {
-              const value = event.target.value === 'all' ? 'all' : Number(event.target.value);
-              setFilterYear(value);
-            }}
-          >
-            <option value="all">All years</option>
-            {years.map((year) => (
-              <option value={year} key={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {filtered.length === 0 ? <div className="notice">No entries for this selection.</div> : null}
-
-        <div className="stack" style={{ marginTop: 10 }}>
-          {filtered.map((entry) => {
-            const life = lifeScore(entry);
-            return (
-              <button
-                className="card"
-                onClick={() => onSelect(entry)}
-                key={entry.id}
-                style={{ textAlign: 'left' }}
-                type="button"
-              >
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <strong>{monthLong(entry.year, entry.month).toUpperCase()}</strong>
-                  <span>{moneyText(entry.money)}</span>
-                </div>
-                <div className="row" style={{ justifyContent: 'space-between', marginTop: 4 }}>
-                  <span className="notice">Life Score</span>
-                  <span>{life !== null ? ratingText(life) : '—'}</span>
-                </div>
-                <div className="history-ratings" aria-label="Monthly ratings">
-                  {ratingCategoryList.map((category) => (
-                    <span key={category}>{ratingDisplayName[category]} {ratingText(entry[category])}</span>
-                  ))}
-                </div>
-                <div className="notice" style={{ marginTop: 8 }}>
-                  {entry.changes ? entry.changes : 'No focus text.'}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="screen-stack history-screen">
+    <section className="page-intro"><span className="eyebrow">Your timeline</span><h2>History</h2><p>{entries.length ? `${entries.length} monthly reviews` : 'No reviews yet.'}</p></section>
+    <div className="filter-scroll" role="tablist" aria-label="Filter history by year"><button className={`filter-pill ${year === 'all' ? 'selected' : ''}`} type="button" onClick={() => setYear('all')}>All</button>{years.map((value) => <button key={value} className={`filter-pill ${year === value ? 'selected' : ''}`} type="button" onClick={() => setYear(value)}>{value}</button>)}</div>
+    <section className="timeline-list">{filtered.map((entry) => {
+      const previous = entryForMonth(entry.month === 1 ? entry.year - 1 : entry.year, entry.month === 1 ? 12 : entry.month - 1);
+      const summary = changeSummary(entry, previous);
+      const focus = entry.changes.replace(/\s+/g, ' ').trim();
+      return <button className="timeline-item" type="button" key={entry.id} onClick={() => onSelect(entry)}><div className="timeline-top"><div><strong>{monthLong(entry.year, entry.month)}</strong><span>{moneyText(entry.money)}</span></div><div className="timeline-score"><strong>{ratingText(lifeScore(entry) ?? undefined)}</strong><span>Life score</span></div></div><div className="timeline-changes">{summary.best ? <span className="positive-text">{ratingDisplayName[summary.best.category]} {formatDelta(summary.best.delta)}</span> : <span>First review</span>}{summary.worst ? <span className="negative-text">{ratingDisplayName[summary.worst.category]} {formatDelta(summary.worst.delta)}</span> : null}</div>{focus ? <p>{focus}</p> : null}<Icon name="chevron" /></button>;
+    })}</section>
+  </div>;
 }

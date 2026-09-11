@@ -1,4 +1,8 @@
+.DS_Store
+ProgressPulseWeb/.DS_Store
 past.txt
-ProgressPulseWeb/private/
+ProgressPulseApp/ProgressPulse/Resources/
 ProgressPulseWeb/node_modules/
 ProgressPulseWeb/dist/
+ProgressPulseWeb/private/
+ProgressPulseWeb/private/*.json

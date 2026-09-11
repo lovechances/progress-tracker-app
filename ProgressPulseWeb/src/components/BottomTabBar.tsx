@@ -1,3 +1,5 @@
+import { Icon } from './Icon';
+
 type Tab = 'home' | 'new' | 'history' | 'insights';
 
 export function BottomTabBar({
@@ -7,11 +9,11 @@ export function BottomTabBar({
   active: Tab;
   onNavigate: (tab: Tab) => void;
 }) {
-  const tabs: Array<{ id: Tab; label: string; icon: string }> = [
-    { id: 'home', label: 'Home', icon: 'Home' },
-    { id: 'new', label: 'New', icon: 'Add' },
-    { id: 'history', label: 'History', icon: 'List' },
-    { id: 'insights', label: 'Insights', icon: 'Trends' }
+  const tabs: Array<{ id: Tab; label: string; icon: 'home' | 'add' | 'history' | 'chart' }> = [
+    { id: 'home', label: 'Home', icon: 'home' },
+    { id: 'new', label: 'Add', icon: 'add' },
+    { id: 'history', label: 'History', icon: 'history' },
+    { id: 'insights', label: 'Insights', icon: 'chart' }
   ];
 
   return (
@@ -25,7 +27,7 @@ export function BottomTabBar({
           aria-label={tab.label}
           aria-current={active === tab.id ? 'page' : undefined}
         >
-          <span className="nav-icon">{tab.icon}</span>
+          <Icon name={tab.icon} />
           <span>{tab.label}</span>
         </button>
       ))}

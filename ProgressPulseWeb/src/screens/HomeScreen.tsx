@@ -1,105 +1,61 @@
 import { useMemo } from 'react';
-import { useProgress } from '../context/ProgressContext';
-import { monthLong, ratingText, formatDelta, moneyText } from '../utils/format';
 import { DeltaBadge } from '../components/DeltaBadge';
-import { lifeScore, lifeScoreChange, ratingChange, strongestCategory, weakestCategory } from '../lib/analytics';
-import { ratingCategoryList, ratingDisplayName } from '../types';
+import { useProgress } from '../context/ProgressContext';
+import { lifeScore, lifeScoreChange, ratingChange } from '../lib/analytics';
+import { ratingCategoryList, ratingDisplayName, type RatingCategory } from '../types';
+import { formatDelta, moneyText, monthLong, ratingText } from '../utils/format';
 
-interface HomeScreenProps {
-  onCompleteReview: () => void;
-  onEditCurrent?: () => void;
-}
-
-export function HomeScreen({ onCompleteReview, onEditCurrent }: HomeScreenProps) {
-  const { entries, entryForMonth, currentMonthEntry } = useProgress();
-  const hasData = entries.length > 0;
-
+export function HomeScreen({ onCompleteReview, onEditCurrent }: { onCompleteReview: () => void; onEditCurrent: () => void }) {
+  const { entries, currentMonthEntry, entryForMonth } = useProgress();
   const now = new Date();
-  const currentMonth = monthLong(now.getFullYear(), now.getMonth() + 1);
   const latest = entries.at(-1);
-  const latestLife = latest ? lifeScore(latest) : null;
-  const previous = entries.length >= 2 ? entries.at(-2) : undefined;
-  const lifeDelta = latest ? lifeScoreChange(latest, previous ?? null) : null;
+  const displayEntry = currentMonthEntry ?? latest;
+  const previous = useMemo(() => {
+    if (!displayEntry) return undefined;
+    return entryForMonth(displayEntry.month === 1 ? displayEntry.year - 1 : displayEntry.year, displayEntry.month === 1 ? 12 : displayEntry.month - 1);
+  }, [displayEntry, entryForMonth]);
+  const score = displayEntry ? lifeScore(displayEntry) : null;
+  const scoreDelta = displayEntry ? lifeScoreChange(displayEntry, previous ?? null) : null;
+  const moneyDelta = displayEntry && previous ? displayEntry.money - previous.money : undefined;
+  const mover = useMemo(() => {
+    if (!displayEntry || !previous) return null;
+    const candidates = ratingCategoryList.map((category) => ({ category, delta: ratingChange(displayEntry[category], previous[category]) })).filter((item): item is { category: RatingCategory; delta: number } => item.delta !== null);
+    return candidates.sort((a, b) => b.delta - a.delta)[0] ?? null;
+  }, [displayEntry, previous]);
 
-  const target = currentMonthEntry ?? latest;
+  if (!displayEntry) {
+    return <section className="empty-state"><span className="eyebrow">September 2026</span><h2>No reviews yet.</h2><p>Complete your first monthly review to start seeing your progress.</p><button className="primary-button" type="button" onClick={onCompleteReview}>Complete September Review</button></section>;
+  }
 
-  const strongest = strongestCategory(target);
-  const weakest = weakestCategory(target);
-
-  const previousOfTarget = useMemo(() => {
-    if (!target) return undefined;
-    const prevMonth = target.month === 1 ? 12 : target.month - 1;
-    const prevYear = target.month === 1 ? target.year - 1 : target.year;
-    return entryForMonth(prevYear, prevMonth);
-  }, [entryForMonth, target]);
-
-  const ctaLabel = target ? 'Update Current Month' : 'Complete Monthly Review';
-
+  const currentMonth = monthLong(now.getFullYear(), now.getMonth() + 1);
+  const reviewName = monthLong(displayEntry.year, displayEntry.month);
   return (
-    <div className="stack">
-      <div className="card">
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <div>
-            <div className="notice">HOME</div>
-            <h2 className="section-title">{currentMonth}</h2>
-          </div>
-          <div className="row" style={{ gap: 8 }}>
-            {currentMonthEntry ? <button onClick={onEditCurrent} type="button">Edit This Month</button> : null}
-            {hasData && !currentMonthEntry ? <button onClick={onCompleteReview} type="button">{ctaLabel}</button> : null}
-            {!hasData ? <button onClick={onCompleteReview} type="button">{ctaLabel}</button> : null}
-          </div>
-        </div>
+    <div className="screen-stack">
+      <section className="home-intro">
+        <span className="eyebrow">{currentMonth}</span>
+        <h2>{currentMonthEntry ? 'Your month at a glance' : `${reviewName} Review`}</h2>
+        <p>{currentMonthEntry ? 'Keep the momentum going.' : `${ratingText(score ?? undefined)} Life Score · ${moneyText(displayEntry.money)}`}</p>
+        <button className="primary-button" type="button" onClick={currentMonthEntry ? onEditCurrent : onCompleteReview}>{currentMonthEntry ? `Edit ${currentMonth} Review` : `Complete ${currentMonth} Review`}</button>
+      </section>
 
-        <div className="stats-row" style={{ marginTop: 10 }}>
-          <div className="kpi">
-            <div className="notice">Latest Completed</div>
-            <div>{latest ? monthLong(latest.year, latest.month) : '—'}</div>
-          </div>
-          <div className="kpi">
-            <div className="notice">Money</div>
-            <div>{target ? moneyText(target.money) : '—'}</div>
-          </div>
-          <div className="kpi">
-            <div className="notice">Life Score</div>
-            <div>{latestLife !== null ? ratingText(latestLife) : '—'}</div>
-          </div>
-          <div className="kpi">
-            <div className="notice">Life Score Δ</div>
-            <div>{lifeDelta !== null ? <DeltaBadge value={lifeDelta} /> : '—'}</div>
-          </div>
-        </div>
+      <section className="snapshot" aria-label="Current snapshot">
+        <div className="snapshot-primary"><span className="eyebrow">Life score</span><strong>{ratingText(score ?? undefined)}</strong><DeltaBadge value={scoreDelta ?? undefined} /></div>
+        <div className="snapshot-metric"><span>Money</span><strong>{moneyText(displayEntry.money)}</strong><DeltaBadge value={moneyDelta} asMoney /></div>
+      </section>
 
-        <div className="row" style={{ justifyContent: 'space-between', marginTop: 10 }}>
-            <span className="notice">Strongest: {strongest ? ratingDisplayName[strongest] : '—'}</span>
-            <span className="notice">Weakest: {weakest ? ratingDisplayName[weakest] : '—'}</span>
-        </div>
-
-        <div className="notice" style={{ marginTop: 10, whiteSpace: 'pre-wrap' }}>
-          {target?.changes || 'No focus text saved for this month.'}
-        </div>
-      </div>
-
-      <div className="card">
-        <h2 className="section-title">Current ratings</h2>
-        <div className="stack" style={{ marginTop: 8 }}>
+      <section className="section-block">
+        <div className="section-heading"><h3>Ratings</h3><span>{reviewName}</span></div>
+        <div className="rating-list">
           {ratingCategoryList.map((category) => {
-            const value = target ? target[category] : undefined;
-            const prev = previousOfTarget && previousOfTarget[category];
-            const delta = previousOfTarget ? ratingChange(value, prev) : null;
-            return (
-              <div className="rating-row" key={category}>
-                <div className="header">
-                  <span>{ratingDisplayName[category]}</span>
-                  <span className="row" style={{ gap: 8 }}>
-                    <span>{ratingText(value)}</span>
-                    <span>{delta !== null ? formatDelta(delta) : '—'}</span>
-                  </span>
-                </div>
-              </div>
-            );
+            const value = displayEntry[category];
+            const delta = previous ? ratingChange(value, previous[category]) : null;
+            return <div className="rating-scan-row" key={category}><span>{ratingDisplayName[category]}</span><div className="rating-track" aria-hidden="true"><i style={{ width: `${(value ?? 0) * 10}%` }} /></div><strong>{ratingText(value)}</strong><span className="rating-delta">{delta === null ? '—' : formatDelta(delta)}</span></div>;
           })}
         </div>
-      </div>
+      </section>
+
+      <section className="focus-block"><div className="section-heading"><h3>Focus</h3><span>{reviewName}</span></div><p>{displayEntry.changes || 'No focus set for this month.'}</p></section>
+      {mover && mover.delta > 0 ? <p className="quiet-insight"><strong>{ratingDisplayName[mover.category]}</strong> improved the most last month: {formatDelta(mover.delta)}.</p> : null}
     </div>
   );
 }

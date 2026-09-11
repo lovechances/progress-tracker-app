@@ -2,7 +2,7 @@
   "name": "progresspulse-web",
   "private": true,
   "version": "0.0.1",
-  "description": "ProgressPulse offline-first PWA",
+  "description": "Progress Tracker offline-first PWA",
   "type": "module",
   "scripts": {
     "dev": "vite",
