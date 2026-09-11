@@ -17,10 +17,10 @@ export function HomeScreen({ onCompleteReview, onEditCurrent }: { onCompleteRevi
   const score = displayEntry ? lifeScore(displayEntry) : null;
   const scoreDelta = displayEntry ? lifeScoreChange(displayEntry, previous ?? null) : null;
   const moneyDelta = displayEntry && previous ? displayEntry.money - previous.money : undefined;
-  const mover = useMemo(() => {
+  const signal = useMemo(() => {
     if (!displayEntry || !previous) return null;
     const candidates = ratingCategoryList.map((category) => ({ category, delta: ratingChange(displayEntry[category], previous[category]) })).filter((item): item is { category: RatingCategory; delta: number } => item.delta !== null);
-    return candidates.sort((a, b) => b.delta - a.delta)[0] ?? null;
+    return candidates.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0] ?? null;
   }, [displayEntry, previous]);
 
   if (!displayEntry) {
@@ -35,7 +35,7 @@ export function HomeScreen({ onCompleteReview, onEditCurrent }: { onCompleteRevi
         <span className="eyebrow">{currentMonth}</span>
         <h2>{currentMonthEntry ? 'Your month at a glance' : `${reviewName} Review`}</h2>
         <p>{currentMonthEntry ? 'Keep the momentum going.' : `${ratingText(score ?? undefined)} Life Score · ${moneyText(displayEntry.money)}`}</p>
-        <button className="primary-button" type="button" onClick={currentMonthEntry ? onEditCurrent : onCompleteReview}>{currentMonthEntry ? `Edit ${currentMonth} Review` : `Complete ${currentMonth} Review`}</button>
+        <button className="review-link" type="button" onClick={currentMonthEntry ? onEditCurrent : onCompleteReview}>{currentMonthEntry ? `View or edit ${currentMonth} review` : `${currentMonth} review not completed`} <span>&gt;</span></button>
       </section>
 
       <section className="snapshot" aria-label="Current snapshot">
@@ -55,7 +55,7 @@ export function HomeScreen({ onCompleteReview, onEditCurrent }: { onCompleteRevi
       </section>
 
       <section className="focus-block"><div className="section-heading"><h3>Focus</h3><span>{reviewName}</span></div><p>{displayEntry.changes || 'No focus set for this month.'}</p></section>
-      {mover && mover.delta > 0 ? <p className="quiet-insight"><strong>{ratingDisplayName[mover.category]}</strong> improved the most last month: {formatDelta(mover.delta)}.</p> : null}
+      {signal ? <section className="monthly-signal"><span className="eyebrow">Monthly signal</span><p><strong>{ratingDisplayName[signal.category]}</strong> was your {signal.delta > 0 ? 'strongest mover' : signal.delta < 0 ? 'biggest decline' : 'most stable area'} <span>{formatDelta(signal.delta)}</span></p></section> : null}
     </div>
   );
 }

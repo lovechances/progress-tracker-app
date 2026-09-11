@@ -67,7 +67,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .empty-state p { margin: 0; color: var(--text-secondary); }
 
 .home-intro { display: grid; gap: var(--space-2); }
-.home-intro .primary-button { margin-top: var(--space-2); }
+.review-link { display: inline-flex; align-items: center; justify-content: space-between; gap: var(--space-2); width: fit-content; min-height: 34px; margin-top: var(--space-1); border: 0; background: transparent; color: var(--accent); padding: 0; font-size: 13px; font-weight: 700; text-align: left; }
+.review-link span { font-size: 16px; line-height: 1; }
 .snapshot { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--line); box-shadow: var(--shadow); }
 .snapshot > div { display: grid; align-content: space-between; gap: var(--space-2); min-height: 126px; padding: var(--space-4); background: var(--surface); }
 .snapshot strong { font-size: 25px; letter-spacing: -0.035em; }
@@ -90,6 +91,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .focus-block p { margin: var(--space-3) 0 0; overflow-wrap: anywhere; color: var(--text-secondary); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
 .quiet-insight { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.45; }
 .quiet-insight strong { color: var(--text); }
+.monthly-signal { display: grid; gap: var(--space-1); padding-top: var(--space-2); border-top: 1px solid var(--line-soft); }
+.monthly-signal p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+.monthly-signal strong { color: var(--text); }
+.monthly-signal p span { color: var(--accent); font-weight: 700; }
 
 .review-form { display: grid; gap: var(--space-6); }
 .review-heading { display: grid; gap: var(--space-1); }
@@ -161,9 +166,9 @@ input[type='range']::-moz-range-thumb { width: 17px; height: 17px; border: 3px s
 .chart-heading strong { font-size: 29px; letter-spacing: -0.035em; }
 .metric-scroll { margin: 0 calc(var(--space-4) * -1); width: calc(100% + var(--space-4) * 2); padding: 0 var(--space-4) 2px; }
 .metric-chip { scroll-snap-align: start; }
-.chart-wrap { width: 100%; min-width: 0; height: 218px; }
+.chart-wrap { width: 100%; min-width: 0; height: 176px; }
 .chart-wrap .recharts-responsive-container { min-width: 0 !important; }
-.chart-empty { display: grid; place-items: center; height: 160px; color: var(--text-muted); font-size: 13px; text-align: center; }
+.chart-empty { display: grid; place-items: center; height: 132px; color: var(--text-muted); font-size: 13px; text-align: center; }
 .range-control { display: inline-grid; grid-template-columns: repeat(3, 1fr); width: 170px; max-width: 100%; justify-self: end; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); }
 .range-control button { min-width: 0; border: 0; border-radius: 0; background: transparent; padding: 0; }
 .overview-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--line); }
@@ -172,6 +177,10 @@ input[type='range']::-moz-range-thumb { width: 17px; height: 17px; border: 3px s
 .overview-stats strong { overflow-wrap: anywhere; font-size: 17px; letter-spacing: -0.025em; }
 .overview-stats small { min-height: 14px; }
 .momentum-row, .momentum-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.signal-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.signal-pair > div { display: grid; gap: var(--space-1); padding: var(--space-3) 0; border-top: 1px solid var(--line-soft); }
+.signal-pair span { color: var(--text-muted); font-size: 11px; }
+.signal-pair strong { overflow-wrap: anywhere; font-size: 14px; }
 .momentum-row > div { display: grid; gap: var(--space-1); padding: var(--space-3) 0; border-top: 1px solid var(--line-soft); }
 .momentum-row span, .momentum-columns > div > span { color: var(--text-muted); font-size: 11px; }
 .momentum-row strong { overflow-wrap: anywhere; font-size: 14px; }

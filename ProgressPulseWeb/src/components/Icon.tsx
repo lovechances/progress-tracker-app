@@ -10,7 +10,7 @@ const paths: Record<IconName, string> = {
   history: 'M4 5v5h5M5.4 10A7 7 0 1012 5a7 7 0 00-6.6 5M12 8v4l3 2',
   home: 'M3 10.5L12 3l9 7.5V21H3zM9 21v-6h6v6',
   more: 'M5 12h.01M12 12h.01M19 12h.01',
-  settings: 'M12 3v2m0 14v2M4.2 5.2l1.4 1.4m12.8 12.8l1.4 1.4M3 12h2m14 0h2M4.2 18.8l1.4-1.4M18.4 6.6l1.4-1.4M12 8a4 4 0 100 8 4 4 0 000-8z',
+  settings: 'M4 7h16M4 17h16M9 7a2 2 0 100 4 2 2 0 000-4zM15 13a2 2 0 100 4 2 2 0 000-4z',
   upload: 'M12 21V10m0 0l-4 4m4-4l4 4M5 3h14'
 };
 
