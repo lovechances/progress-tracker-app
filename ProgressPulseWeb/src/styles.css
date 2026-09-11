@@ -164,6 +164,7 @@ input[type='range']::-moz-range-thumb { width: 17px; height: 17px; border: 3px s
 .chart-heading { display: flex; align-items: end; justify-content: space-between; gap: var(--space-3); }
 .chart-heading > div { display: grid; gap: var(--space-1); }
 .chart-heading strong { font-size: 29px; letter-spacing: -0.035em; }
+.chart-change { justify-items: end; color: var(--text-muted); font-size: 11px; font-weight: 700; text-align: right; }
 .metric-scroll { margin: 0 calc(var(--space-4) * -1); width: calc(100% + var(--space-4) * 2); padding: 0 var(--space-4) 2px; }
 .metric-chip { scroll-snap-align: start; }
 .chart-wrap { width: 100%; min-width: 0; height: 176px; }

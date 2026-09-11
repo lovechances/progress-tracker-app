@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DeltaBadge } from '../components/DeltaBadge';
 import { useProgress } from '../context/ProgressContext';
-import { allTimeHighForCategory, allTimeHighLifeScore, allTimeHighMoney, allTimeLowMoney, bestWorst3MonthLife, categorySeries, changeFrom, lifeScoreSeries, largestMonthLifeDelta, momentum, moneySeries, trendWindowEntries } from '../lib/analytics';
+import { allTimeHighForCategory, allTimeHighLifeScore, allTimeHighMoney, allTimeLowMoney, bestWorst3MonthLife, categorySeries, lifeScoreSeries, largestMonthLifeDelta, momentum, moneySeries, seriesRangeChange, trendWindowEntries } from '../lib/analytics';
 import { recurringThemes } from '../lib/focus';
 import { ratingCategoryList, ratingDisplayName, type RatingCategory, type TrendWindow } from '../types';
 import { formatDelta, moneyText, monthShort, ratingText } from '../utils/format';
@@ -18,7 +18,7 @@ const metricOptions: Array<[Metric, string]> = [['life', 'Life Score'], ['money'
 function seriesStats(points: Point[]) {
   if (!points.length) return null;
   const values = points.map((point) => point.value);
-  return { current: values.at(-1)!, average: values.reduce((sum, value) => sum + value, 0) / values.length, high: Math.max(...values), low: Math.min(...values), recent: values.length > 1 ? values.at(-1)! - values.at(-2)! : null };
+  return { current: values.at(-1)!, average: values.reduce((sum, value) => sum + value, 0) / values.length, high: Math.max(...values), low: Math.min(...values), monthOverMonth: values.length > 1 ? values.at(-1)! - values.at(-2)! : null };
 }
 
 function TrendChart({ points, money = false }: { points: Point[]; money?: boolean }) {
@@ -26,9 +26,9 @@ function TrendChart({ points, money = false }: { points: Point[]; money?: boolea
   return <div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><LineChart data={points} margin={{ top: 4, right: 2, left: money ? 10 : -16, bottom: 0 }}><CartesianGrid vertical={false} stroke="#273449" strokeDasharray="3 4" /><XAxis dataKey="label" minTickGap={30} axisLine={false} tickLine={false} tick={{ fill: '#8290a8', fontSize: 10 }} /><YAxis width={money ? 54 : 32} tickFormatter={(value) => money ? `$${Math.round(value / 1000)}k` : value.toFixed(0)} axisLine={false} tickLine={false} tick={{ fill: '#8290a8', fontSize: 10 }} /><Tooltip contentStyle={{ background: '#172235', border: '1px solid #30405a', borderRadius: 12 }} labelStyle={{ color: '#dce7f7' }} formatter={(value) => [money ? moneyText(Number(value)) : ratingText(Number(value)), money ? 'Money' : 'Score']} /><Line type="monotone" dataKey="value" stroke={money ? '#66c7b2' : '#86a8ff'} strokeWidth={2.5} dot={false} activeDot={{ r: 4, fill: money ? '#66c7b2' : '#86a8ff', strokeWidth: 0 }} />{money ? <ReferenceLine y={0} stroke="#6d7b92" strokeDasharray="3 4" /> : null}</LineChart></ResponsiveContainer></div>;
 }
 
-function ChartSurface({ title, points, money, range, onRangeChange, showMetricPicker, metric, onMetricChange }: { title: string; points: Point[]; money?: boolean; range: TrendWindow; onRangeChange: (range: TrendWindow) => void; showMetricPicker?: boolean; metric?: Metric; onMetricChange?: (metric: Metric) => void }) {
+function ChartSurface({ title, points, money, range, onRangeChange, change, changeLabel, showMetricPicker, metric, onMetricChange }: { title: string; points: Point[]; money?: boolean; range: TrendWindow; onRangeChange: (range: TrendWindow) => void; change: number | null; changeLabel: string; showMetricPicker?: boolean; metric?: Metric; onMetricChange?: (metric: Metric) => void }) {
   const stats = seriesStats(points);
-  return <section className="chart-surface"><div className="chart-heading"><div><span className="eyebrow">{title}</span><strong>{stats ? money ? moneyText(stats.current) : ratingText(stats.current) : '—'}</strong></div><DeltaBadge value={stats?.recent ?? undefined} asMoney={money} /></div>{showMetricPicker ? <div className="metric-scroll" aria-label="Explore a metric">{metricOptions.map(([id, label]) => <button className={`metric-chip ${metric === id ? 'selected' : ''}`} key={id} type="button" onClick={() => onMetricChange?.(id)}>{label}</button>)}</div> : null}<TrendChart points={points} money={money} /><div className="range-control" aria-label="Chart range">{ranges.map((item) => <button key={item.id} className={range === item.id ? 'selected' : ''} type="button" onClick={() => onRangeChange(item.id)}>{item.label}</button>)}</div></section>;
+  return <section className="chart-surface"><div className="chart-heading"><div><span className="eyebrow">{title}</span><strong>{stats ? money ? moneyText(stats.current) : ratingText(stats.current) : '—'}</strong></div><div className="chart-change"><span>{changeLabel}</span><DeltaBadge value={change ?? undefined} asMoney={money} /></div></div>{showMetricPicker ? <div className="metric-scroll" aria-label="Explore a metric">{metricOptions.map(([id, label]) => <button className={`metric-chip ${metric === id ? 'selected' : ''}`} key={id} type="button" onClick={() => onMetricChange?.(id)}>{label}</button>)}</div> : null}<TrendChart points={points} money={money} /><div className="range-control" aria-label="Chart range">{ranges.map((item) => <button key={item.id} className={range === item.id ? 'selected' : ''} type="button" onClick={() => onRangeChange(item.id)}>{item.label}</button>)}</div></section>;
 }
 
 export function InsightsScreen() {
@@ -46,8 +46,9 @@ export function InsightsScreen() {
   const lifeStats = seriesStats(lifePoints);
   const moneyStats = seriesStats(moneyPoints);
   const exploreStats = seriesStats(explorePoints);
+  const overviewChange = seriesStats(overviewPoints)?.monthOverMonth ?? null;
+  const exploreChange = seriesRangeChange(explorePoints);
   const currentCategory = metric !== 'life' && metric !== 'money' ? metric : null;
-  const allCategoryPoints = useMemo(() => currentCategory ? categorySeries(entries, currentCategory) : [], [currentCategory, entries]);
   const momentumData = useMemo(() => momentum(entries), [entries]);
   const themes = useMemo(() => recurringThemes(entries), [entries]);
   const periods = bestWorst3MonthLife(entries);
@@ -56,23 +57,24 @@ export function InsightsScreen() {
   const strongest = momentumData.improving[0];
   const weakest = momentumData.declining[0];
   const exploreTitle = metric === 'life' ? 'Life Score' : metric === 'money' ? 'Money' : ratingDisplayName[metric];
+  const rangeChangeLabel = range === 'ALL' ? 'All-time change' : `${range} change`;
 
   return <div className="screen-stack insights-screen">
     <section className="page-intro"><span className="eyebrow">Your patterns</span><h2>Insights</h2><p>{view === 'overview' ? 'Where you are right now.' : view === 'explore' ? 'Choose a metric to explore.' : 'What keeps happening over time.'}</p></section>
     <div className="filter-scroll insight-tabs" role="tablist" aria-label="Insights sections">{views.map((item) => <button key={item.id} className={`filter-pill ${view === item.id ? 'selected' : ''}`} type="button" onClick={() => setView(item.id)}>{item.label}</button>)}</div>
 
     {view === 'overview' ? <>
-      <section className="overview-stats"><div><span>Life Score</span><strong>{lifeStats ? ratingText(lifeStats.current) : '—'}</strong><DeltaBadge value={lifeStats?.recent ?? undefined} /></div><div><span>Money</span><strong>{moneyStats ? moneyText(moneyStats.current) : '—'}</strong><DeltaBadge value={moneyStats?.recent ?? undefined} asMoney /></div></section>
-      <ChartSurface title="Life Score" points={overviewPoints} range={range} onRangeChange={setRange} />
+      <section className="overview-stats"><div><span>Life Score</span><strong>{lifeStats ? ratingText(lifeStats.current) : '—'}</strong><small>vs last month</small><DeltaBadge value={lifeStats?.monthOverMonth ?? undefined} /></div><div><span>Money</span><strong>{moneyStats ? moneyText(moneyStats.current) : '—'}</strong><small>vs last month</small><DeltaBadge value={moneyStats?.monthOverMonth ?? undefined} asMoney /></div></section>
+      <ChartSurface title="Life Score" points={overviewPoints} range={range} onRangeChange={setRange} change={overviewChange} changeLabel="vs last month" />
       <section className="signal-pair"><div><span>Strongest mover</span><strong>{strongest ? `${ratingDisplayName[strongest.category]} +${strongest.change.toFixed(1)}` : 'No clear mover'}</strong></div><div><span>Needs attention</span><strong>{weakest ? `${ratingDisplayName[weakest.category]} ${weakest.change.toFixed(1)}` : 'Nothing notable'}</strong></div></section>
       {longTerm ? <p className="quiet-insight"><strong>Since {monthShort(longTerm.first.year, longTerm.first.month)}</strong><span>Money {formatDelta(longTerm.latest.money - longTerm.first.money, true)}</span></p> : null}
     </> : null}
 
     {view === 'explore' ? <>
-      <ChartSurface title={exploreTitle} points={explorePoints} money={metric === 'money'} range={range} onRangeChange={setRange} showMetricPicker metric={metric} onMetricChange={setMetric} />
-      {metric === 'life' ? <section className="overview-stats"><div><span>Current</span><strong>{exploreStats ? ratingText(exploreStats.current) : '—'}</strong></div><div><span>Average</span><strong>{exploreStats ? ratingText(exploreStats.average) : '—'}</strong></div><div><span>Peak</span><strong>{exploreStats ? ratingText(exploreStats.high) : '—'}</strong></div><div><span>Recent change</span><strong>{formatDelta(exploreStats?.recent ?? undefined)}</strong></div></section> : null}
-      {metric === 'money' ? <section className="overview-stats"><div><span>Current</span><strong>{moneyStats ? moneyText(moneyStats.current) : '—'}</strong></div><div><span>High</span><strong>{allTimeHighMoney(entries) ? moneyText(allTimeHighMoney(entries)!.value) : '—'}</strong></div><div><span>Low</span><strong>{allTimeLowMoney(entries) ? moneyText(allTimeLowMoney(entries)!.value) : '—'}</strong></div><div><span>3M / 12M</span><strong>{formatDelta(changeFrom(moneyPoints, 3) ?? undefined, true)} / {formatDelta(changeFrom(moneyPoints, 12) ?? undefined, true)}</strong></div></section> : null}
-      {currentCategory ? <section className="overview-stats"><div><span>Current</span><strong>{exploreStats ? ratingText(exploreStats.current) : '—'}</strong></div><div><span>Average</span><strong>{exploreStats ? ratingText(exploreStats.average) : '—'}</strong></div><div><span>Peak</span><strong>{exploreStats ? ratingText(exploreStats.high) : '—'}</strong></div><div><span>3 months</span><strong>{formatDelta(changeFrom(allCategoryPoints, 3) ?? undefined)}</strong></div></section> : null}
+      <ChartSurface title={exploreTitle} points={explorePoints} money={metric === 'money'} range={range} onRangeChange={setRange} change={exploreChange} changeLabel={rangeChangeLabel} showMetricPicker metric={metric} onMetricChange={setMetric} />
+      {metric === 'life' ? <section className="overview-stats"><div><span>Current</span><strong>{exploreStats ? ratingText(exploreStats.current) : '—'}</strong></div><div><span>Average</span><strong>{exploreStats ? ratingText(exploreStats.average) : '—'}</strong></div><div><span>Peak</span><strong>{exploreStats ? ratingText(exploreStats.high) : '—'}</strong></div><div><span>{rangeChangeLabel}</span><strong>{formatDelta(exploreChange ?? undefined)}</strong></div></section> : null}
+      {metric === 'money' ? <section className="overview-stats"><div><span>Current</span><strong>{exploreStats ? moneyText(exploreStats.current) : '—'}</strong></div><div><span>High</span><strong>{allTimeHighMoney(entries) ? moneyText(allTimeHighMoney(entries)!.value) : '—'}</strong></div><div><span>Low</span><strong>{allTimeLowMoney(entries) ? moneyText(allTimeLowMoney(entries)!.value) : '—'}</strong></div><div><span>{rangeChangeLabel}</span><strong>{formatDelta(exploreChange ?? undefined, true)}</strong></div></section> : null}
+      {currentCategory ? <section className="overview-stats"><div><span>Current</span><strong>{exploreStats ? ratingText(exploreStats.current) : '—'}</strong></div><div><span>Average</span><strong>{exploreStats ? ratingText(exploreStats.average) : '—'}</strong></div><div><span>Peak</span><strong>{exploreStats ? ratingText(exploreStats.high) : '—'}</strong></div><div><span>{rangeChangeLabel}</span><strong>{formatDelta(exploreChange ?? undefined)}</strong></div></section> : null}
     </> : null}
 
     {view === 'patterns' ? <>

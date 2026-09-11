@@ -91,6 +91,13 @@ export function changeFrom(series: SeriesPoint[], periods: number): number | nul
   return series.at(-1)!.value - series.at(-1 - periods)!.value;
 }
 
+// Explore ranges use the latest 6 or 12 available monthly entries. The chart and
+// this helper intentionally receive the same already-filtered series.
+export function seriesRangeChange(points: Array<{ value: number }>): number | null {
+  if (points.length < 2) return null;
+  return points.at(-1)!.value - points[0].value;
+}
+
 export function allTimeHigh(entries: MonthlyEntry[], extractor: (entry: MonthlyEntry) => number | null): MonthlyEntry | null {
   let best: MonthlyEntry | null = null;
   let score = -Infinity;
